@@ -3,15 +3,16 @@ FTP benchmark.
 
 Usage:
     ftpbench --help
-    ftpbench -h <host> -u <user> -p <password> [options] login
-    ftpbench -h <host> -u <user> -p <password> [options] upload <workdir> [-s <size>]
-    ftpbench -h <host> -u <user> -p <password> [options] download <workdir> [-s <size>] [--files <count>]
+    ftpbench -h <host> --port <port> -u <user> -p <password> [options] login
+    ftpbench -h <host> --port <port> -u <user> -p <password> [options] upload <workdir> [-s <size>]
+    ftpbench -h <host> --port <port> -u <user> -p <password> [options] download <workdir> [-s <size>] [--files <count>]
 
 Connection options:
     -h <host>, --host=<host>              FTP host [default: 127.0.0.1:21]
                                           You can list multiple servers, separated by commas,
                                           e.g.: -h 10.0.0.1,10.0.0.2,10.0.0.3.
                                           Auto-detection of dns round-robin records is supported.
+    --port <port>                         FTP port
     -u <user>, --user=<user>              FTP user
     -p <password>, --password=<password>  FTP password
 
@@ -87,8 +88,9 @@ class Data(object):
 
 class FTP(object):
 
-    def __init__(self, host, user, password, timeout, stats):
+    def __init__(self, host, port, user, password, timeout, stats):
         self.hosts = host.split(",")
+        self.port = port
         self.user = user
         self.password = password
         self.timeout = timeout
@@ -119,7 +121,8 @@ class FTP(object):
     @contextmanager
     def connect(self):
         with Timeout(self.timeout):
-            ftp = _FTP(self.host)
+            ftp = _FTP()
+            ftp.connect(self.host, self.port)
             ftp.login(self.user, self.password)
 
         try:
@@ -178,7 +181,7 @@ def run_bench_login(opts):
     stats.fail.rejected = Int("rejected")
 
     ftp = FTP(
-        opts["host"], opts["user"], opts["password"],
+        opts["host"], opts["port"], opts["user"], opts["password"],
         opts["timeout"], stats=stats)
 
     print "\n\rStart login benchmark: concurrent={} timeout={}s\n\r".format(
@@ -238,7 +241,7 @@ def run_bench_upload(opts):
     stats.uploadtime = Timeit("upload-time")
 
     ftp = FTP(
-        opts["host"], opts["user"], opts["password"],
+        opts["host"], opts["port"], opts["user"], opts["password"],
         opts["timeout"], stats=stats
     )
 
@@ -305,7 +308,7 @@ def run_bench_download(opts):
     stats.downloadtime = Timeit("download-time")
 
     ftp = FTP(
-        opts["host"], opts["user"], opts["password"],
+        opts["host"], opts["port"], opts["user"], opts["password"],
         opts["timeout"], stats=stats
     )
 
@@ -385,6 +388,7 @@ def main():
             except resolver.NXDOMAIN:
                 pass
 
+        opts["port"] = arguments["--port"]
         opts["user"] = arguments["--user"]
         opts["password"] = arguments["--password"]
         opts["concurrent"] = int(arguments["--concurrent"])
